@@ -1,0 +1,104 @@
+personal:
+  name: "Priyanshu Raj"
+  email: "you@example.com"
+  phone: "+91-XXXXXXXXXX"
+  location: "India"
+  linkedin: "https://linkedin.com/in/your-handle"
+  github: "https://github.com/NeverSpot"
+  portfolio: "https://example.com"
+
+education:
+  degree: "BTech Computer Science"
+  institution: "KIIT University"
+  graduation_year: 2026
+  cgpa: 8.14
+  achievements:
+    - "Codeforces Expert (max 1825)"
+    - "CodeChef 5-Star (max 2027)"
+    - "IICPC Regionalist — 56th rank regionals, 276th Prelims 2025"
+    - "ICPC Regionalist — Rank 42 Kanpur 2025"
+    - "1800+ problems solved across platforms"
+
+professional:
+  target_roles:
+    - "Software Development Engineer"
+    - "Backend Engineer"
+    - "Applied AI Engineer"
+    - "SDE Intern"
+  core_stack:
+    - "C++"
+    - "TypeScript"
+    - "Java"
+    - "Go"
+    - "Node.js"
+    - "Express"
+    - "MySQL"
+    - "MongoDB"
+    - "Redis"
+    - "AWS (EC2, RDS)"
+    - "Linux"
+    - "Nginx"
+  experience_years: 0
+  preferred_locations:
+    - "India"
+    - "Remote"
+    - "Bangalore"
+    - "Hyderabad"
+    - "Pune"
+  excluded_keywords:
+    - "3+ years"
+    - "5+ years"
+    - "7+ years"
+    - "senior"
+    - "lead"
+    - "principal"
+    - "architect"
+
+notion:
+  database_id: "YOUR_NOTION_DATABASE_ID"
+  # NOTION_API_KEY set via environment variable
+
+scoring:
+  weights:
+    role_match: 0.25
+    stack_overlap: 0.20
+    seniority_fit: 0.15
+    company_tier: 0.15
+    location_match: 0.10
+    legitimacy: 0.10
+    work_auth: 0.05
+  thresholds:
+    p1_critical: 80
+    p2_high: 70
+    p3_medium: 55
+    p4_watchlist: 0
+
+tier1_companies:
+  - "stripe"
+  - "uber"
+  - "airbnb"
+  - "databricks"
+  - "snowflake"
+  - "anthropic"
+  - "openai"
+  - "google"
+  - "meta"
+  - "amazon"
+  - "microsoft"
+  - "netflix"
+  - "figma"
+  - "notion"
+  - "linear"
+  - "vercel"
+  - "retool"
+  - "n8n"
+  - "elevenlabs"
+
+sources:
+  simplify_jobs: true
+  jobright: true
+  vanshb03: true
+  remoteok: true
+  greenhouse: true
+  lever: true
+  linkedin_camofox: true
