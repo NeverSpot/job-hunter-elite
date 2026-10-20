@@ -1,0 +1,214 @@
+# Agent runtime configuration — provider routing, fallback chain, delegation,
+# MCP tool servers, and context-engineering budgets.
+#
+# This file is a REDACTED, portable excerpt of the live runtime config. It
+# contains no API keys, no machine-specific paths, and no database ids:
+# every secret is referenced by the environment-variable name that holds it
+# (`key_env`), and every endpoint is a public provider URL.
+#
+# The point of shipping this is that the routing, failover and context
+# behaviour described in the README are configuration, not folklore — you
+# can read the exact topology.
+
+# ─── Primary model ────────────────────────────────────────────────────────
+model:
+  default: "deepseek-v4.1-flash:free"
+  provider: "tokenharbor"
+  base_url: "https://tokenharbor.ai/v1"
+  api_mode: "chat_completions"
+  key_env: "HERMES_CUSTOM_TOKENHARBOR_API_KEY"
+
+# ─── Provider registry ────────────────────────────────────────────────────
+# Each provider is normalised to the same OpenAI-compatible chat-completions
+# surface, so the agent never has to know which vendor is behind the current
+# endpoint. `key_env` names the environment variable that holds the secret;
+# the secret itself is never stored in config.
+providers:
+  tokenharbor:
+    name: "TokenHarbor"
+    base_url: "https://tokenharbor.ai/v1"
+    model: "deepseek/deepseek-v4.1-flash:free"
+    api_mode: "chat_completions"
+    key_env: "HERMES_CUSTOM_TOKENHARBOR_API_KEY"
+    discover_models: true
+  orcarouter:
+    name: "OrcaRouter"
+    base_url: "https://api.orcarouter.ai/v1"
+    model: "deepseek/deepseek-v4-flash-free"
+    api_mode: "chat_completions"
+    key_env: "HERMES_CUSTOM_ORCAROUTER_API_KEY"
+    discover_models: true
+  nvidia:
+    name: "NVIDIA NIM"
+    base_url: "https://integrate.api.nvidia.com/v1"
+    model: "z-ai/glm-5.3"
+    api_mode: "chat_completions"
+    key_env: "NVIDIA_API_KEY"
+    discover_models: true
+  ollama-cloud:
+    name: "Ollama Cloud"
+    base_url: "https://ollama.com/v1"
+    model: "deepseek-v4-flash"
+    api_mode: "chat_completions"
+    key_env: "HERMES_OLLAMA_API_KEY"
+    discover_models: true
+  kilo:
+    name: "Kilo Code"
+    base_url: "https://api.kilocode.ai/api/openrouter"
+    model: "nvidia/nemotron-3-ultra-550b-a55b:free"
+    api_mode: "chat_completions"
+    key_env: "KILO_API_KEY"
+    discover_models: true
+  groq:
+    name: "Groq"
+    base_url: "https://api.groq.com/openai/v1"
+    model: "openai/gpt-oss-120b"
+    api_mode: "chat_completions"
+    key_env: "GROQ_API_KEY"
+    discover_models: true
+  nous:
+    name: "Nous Portal"
+    base_url: "https://inference.nousresearch.com/v1"
+    model: "stepfun/step-5-preview:free"
+    api_mode: "chat_completions"
+    key_env: "NOUS_API_KEY"
+    discover_models: true
+  mistral:
+    name: "Mistral"
+    base_url: "https://api.mistral.ai/v1"
+    model: "mistral-large-latest"
+    api_mode: "chat_completions"
+    key_env: "MISTRAL_API_KEY"
+    discover_models: true
+  zai:
+    name: "Z AI"
+    base_url: "https://api.z.ai/api/paas/v4"
+    model: "glm-4.7-flash"
+    api_mode: "chat_completions"
+    key_env: "ZAI_API_KEY"
+    discover_models: true
+  openrouter:
+    name: "OpenRouter"
+    base_url: "https://openrouter.ai/api/v1"
+    model: "nvidia/nemotron-3-ultra-550b-a55b:free"
+    api_mode: "chat_completions"
+    key_env: "OPENROUTER_API_KEY"
+    discover_models: true
+
+# ─── Fallback chain ───────────────────────────────────────────────────────
+# 16 model entries across 9 distinct providers, tried in order when the
+# primary endpoint fails. A provider outage or a rate-limit therefore
+# degrades a scheduled run instead of aborting it.
+#
+# Chain order (provider -> model):
+fallback_providers:
+  - provider: "nvidia"          # 1
+    model: "nvidia/nemotron-3-ultra-550b-a55b"
+  - provider: "nvidia"          # 2
+    model: "nvidia/nemotron-3-super-120b-a12b"
+  - provider: "orcarouter"      # 3
+    model: "z-ai/glm-5.3-flash-free"
+  - provider: "kilo"            # 4
+    model: "nvidia/nemotron-3-ultra-550b-a55b:free"
+  - provider: "groq"            # 5
+    model: "openai/gpt-oss-120b"
+  - provider: "orcarouter"      # 6
+    model: "deepseek/deepseek-v4-flash-free"
+  - provider: "nous"            # 7
+    model: "stepfun/step-5-preview:free"
+  - provider: "mistral"         # 8
+    model: "mistral-medium-latest"
+  - provider: "orcarouter"      # 9
+    model: "tencent/hy4-preview-free"
+  - provider: "nous"            # 10
+    model: "stepfun/step-3.7-flash-free"
+  - provider: "orcarouter"      # 11
+    model: "tencent/hy3-free"
+  - provider: "kilo"            # 12
+    model: "nvidia/nemotron-3-super-120b-a12b:free"
+  - provider: "openrouter"      # 13
+    model: "nvidia/nemotron-3-ultra-550b-a55b:free"
+  - provider: "zai"             # 14
+    model: "glm-4.7-flash"
+  - provider: "openrouter"      # 15
+    model: "cognitivecomputations/dolphin-mistral-24b-venice-edition"
+  - provider: "tokenharbor"     # 16
+    model: "claude-haiku-5.5:free"
+
+# ─── Multi-agent delegation ───────────────────────────────────────────────
+# Parallel child agents, each in an isolated conversation context with its
+# own tool loop. Depth is capped so a child cannot spawn an unbounded tree;
+# a child that hits a dangerous-command prompt resolves non-interactively
+# instead of blocking on stdin (which would deadlock a cron run).
+delegation:
+  max_iterations: 250              # max tool-calling turns per child
+  max_concurrent_children: 10      # parallel children per batch
+  max_spawn_depth: 1               # tree depth cap (1 = flat)
+  orchestrator_enabled: true
+  subagent_auto_approve: false     # never auto-approve by default
+  inherit_mcp_toolsets: true       # children keep the parent's MCP tools
+
+# ─── MCP tool servers ─────────────────────────────────────────────────────
+# Remote MCP servers, each authenticated with its own OAuth flow. The agent
+# reaches Notion and Supabase through the standard MCP tool surface rather
+# than bespoke client code.
+mcp_servers:
+  notion:
+    url: "https://mcp.notion.com/mcp"
+    auth: "oauth"
+    enabled: true
+  supabase:
+    url: "https://mcp.supabase.com/mcp"
+    auth: "oauth"
+    enabled: true
+
+# ─── Context engineering budgets ──────────────────────────────────────────
+# Persistent memory is a hard character budget, not an unbounded log. Writes
+# are atomic batch operations so a failed write never leaves a half-updated
+# store, and stale entries are replaced rather than appended to.
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 30000     # ~800 tokens
+  user_char_limit: 13750       # ~500 tokens
+  nudge_interval: 10
+
+# ─── Progressive skill loading ────────────────────────────────────────────
+# Skills are two-tier: only the name + description (a few KB of metadata for
+# the whole library) is resident in the prompt, while the full SKILL.md body
+# is fetched on demand when the skill is actually relevant. That is what
+# keeps a large skill library affordable in context.
+skills:
+  creation_nudge_interval: 15
+
+# ─── Prompt hook ──────────────────────────────────────────────────────────
+# A pre-LLM hook rewrites underspecified prompts with a fast auxiliary model
+# before the reasoning model sees them. It fails open: if the hook errors or
+# times out, the original prompt is used unchanged.
+hooks:
+  pre_llm_call:
+    - matcher: ".*"
+      command: "agent-hooks/prompt-refiner/pre_llm_call.sh"
+      timeout: 30
+      fail_closed: false
+hooks_auto_accept: true
+
+# ─── Auxiliary model tier ─────────────────────────────────────────────────
+# Cheap models handle side tasks (summarisation, compression, image
+# analysis) so the expensive reasoning model only sees work that needs it.
+auxiliary:
+  # provider / model pairs are resolved per task; "auto" prefers
+  # OpenRouter -> Nous Portal -> the main endpoint.
+  compression: "auto"
+  vision: "auto"
+  summarization: "auto"
+
+# ─── Prompt caching ───────────────────────────────────────────────────────
+prompt_caching:
+  cache_ttl: "5m"
+
+# ─── Scheduled execution ──────────────────────────────────────────────────
+# The pipeline runs on a cron schedule; missed runs are caught up so a
+# machine that was off does not silently lose a day of tracking.
+cron:
+  catch_up_missed: true

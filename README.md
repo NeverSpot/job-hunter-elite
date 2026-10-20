@@ -100,6 +100,67 @@ by slug (`api.lever.co/v0/postings/{slug}`, `boards-api.greenhouse.io/v1/boards/
 Runs **daily at 05:00** through a cron-style scheduler. The script itself is
 pure Python with no LLM calls — zero tokens per run.
 
+## The agent runtime around the pipeline
+
+The pipeline above is deterministic — zero LLM calls, zero tokens per run.
+That is a deliberate choice: ranking must be reproducible and auditable.
+
+The **agent runtime** that schedules it, repairs it, and reports on it is a
+separate layer, and it is where the AI/agent engineering lives. The full
+(redacted) configuration ships in [`config/agent-runtime.yaml`](config/agent-runtime.yaml).
+
+**Provider routing and failover.** Ten providers are registered behind a
+single OpenAI-compatible surface, so the agent never needs to know which
+vendor is serving the current turn. The primary endpoint is backed by a
+**16-model fallback chain across 9 distinct providers**:
+
+```
+tokenharbor (primary) -> nvidia/nemotron-3-ultra -> nvidia/nemotron-3-super
+  -> orcarouter/glm-5.3-flash -> kilo/nemotron-ultra -> groq/gpt-oss-120b
+  -> orcarouter/deepseek-v4-flash -> nous/step-5 -> mistral/medium
+  -> orcarouter/hy4 -> nous/step-3.7 -> orcarouter/hy3 -> kilo/nemotron-super
+  -> openrouter/nemotron-ultra -> zai/glm-4.7 -> openrouter/dolphin-mistral
+  -> tokenharbor/claude-haiku
+```
+
+When the primary endpoint rate-limits or dies mid-run, the run degrades to
+the next model instead of aborting. Secrets are referenced only by the
+environment-variable name that holds them (`key_env`); no key is ever
+written into the config.
+
+**Context engineering.** Three separate mechanisms keep the prompt affordable
+while the surface area grows:
+
+- *Progressive skill loading.* Skills are two-tier. Only the name and
+  description of every skill — a few KB of metadata for the entire library —
+  is resident in the prompt. The full body is fetched on demand when a skill
+  is actually relevant, so a large skill catalogue costs metadata, not
+  context.
+- *Hard memory budgets.* Persistent memory is a character cap (30K for agent
+  notes, ~13.75K for the user profile), not an unbounded log. Writes are
+  atomic batch operations, so a failed write can never leave a half-updated
+  store, and stale entries are replaced instead of appended to.
+- *A pre-LLM prompt hook.* A `pre_llm_call` hook rewrites underspecified
+  prompts with a fast auxiliary model before the reasoning model ever sees
+  them. It **fails open** — on error or timeout the original prompt is used
+  unchanged, so the hook can degrade quality but never block a run.
+
+**Multi-agent delegation.** Child agents run in isolated conversation
+contexts with their own tool loops, in parallel batches. Tree depth is capped
+so a child cannot spawn an unbounded tree. A child that hits a
+dangerous-command approval prompt resolves non-interactively rather than
+blocking on stdin, which would deadlock a scheduled run. Children can be
+pinned to a specific provider/model so cost is controlled per workstream.
+
+**MCP tool servers.** Notion and Supabase are reached over the standard MCP
+tool surface with per-server OAuth flows, instead of bespoke client code.
+The pipeline's Notion writes and the runtime's context tools therefore share
+one integration path.
+
+**Scheduling.** The pipeline runs on cron with missed-run catch-up, and
+results are delivered to a chat channel. Execution history is persisted, so
+a failed run is diagnosable after the fact rather than silently skipped.
+
 ## Requirements
 
 - Python 3.10+
@@ -150,6 +211,8 @@ python scripts/job_hunter.py --reset  # emergency only: archive all non-frozen r
 | `scripts/resume_tailor.py` | LaTeX resume tailoring helper (inject line → Tectonic compile) |
 | `profile.yaml.example` | Template for `profile.yaml` (your own copy is gitignored) |
 | `skills/career/job-hunter-elite/SKILL.md` | Agent-facing skill describing this pipeline |
+| `skills/agent-runtime/SKILL.md` | Agent-facing skill describing the runtime layer (routing, context, delegation) |
+| `config/agent-runtime.yaml` | Redacted runtime config: provider registry, 16-model fallback chain, delegation limits, MCP servers, context budgets |
 
 ## Target profile
 
