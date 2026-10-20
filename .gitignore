@@ -41,3 +41,6 @@ google_*.json
 *.pyc
 cache/
 scratch/
+
+# GitHub CLI local state (device ids, config)
+.local/
