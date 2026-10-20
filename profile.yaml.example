@@ -55,24 +55,31 @@ professional:
     - "architect"
 
 notion:
+  # ID of the target Notion database (the "job list" database).
+  # Replace with your own database id, or omit this entirely and supply the
+  # NOTION_DB_ID environment variable instead (the env var takes precedence).
   database_id: "YOUR_NOTION_DATABASE_ID"
-  # NOTION_API_KEY set via environment variable
+  # NOTION_API_KEY is read from the environment variable — never store it here.
 
 scoring:
+  # The six weighted factors of the v6 0-100 fit score, with their band caps.
+  # Employer prestige is deliberately NOT a factor — it is only a tie-breaker.
   weights:
-    role_match: 0.25
-    stack_overlap: 0.20
-    seniority_fit: 0.15
-    company_tier: 0.15
-    location_match: 0.10
-    legitimacy: 0.10
-    work_auth: 0.05
+    role_match: 30        # A. target role / engineering role
+    graduate_fit: 20      # B. new-grad, junior, intern, or <=1y stated
+    location_eligibility: 20  # C. India, worldwide remote, remote, other
+    stack_overlap: 15     # D. hits against professional.core_stack
+    freshness: 10         # E. age of the posting
+    listing_confidence: 5  # F. is the URL a specific posting?
   thresholds:
-    p1_critical: 80
+    p1_critical: 85
     p2_high: 70
     p3_medium: 55
     p4_watchlist: 0
+  # Rows that fail the liveness check this many times are demoted.
+  unknown_demote_after: 3
 
+# Employer names used only to break ties between equally scored rows.
 tier1_companies:
   - "stripe"
   - "uber"
@@ -94,11 +101,11 @@ tier1_companies:
   - "n8n"
   - "elevenlabs"
 
+# The v6 pipeline fetches from these sources. The per-company ATS board slugs
+# live in scripts/job_hunter.py (LEVER_BOARDS, GREENHOUSE_BOARDS, ASHBY_BOARDS).
 sources:
-  simplify_jobs: true
-  jobright: true
-  vanshb03: true
-  remoteok: true
-  greenhouse: true
-  lever: true
-  linkedin_camofox: true
+  simplify_jobs: true    # aggregator: SimplifyJobs New-Grad-Positions
+  remoteok: true         # aggregator: RemoteOK (entry-level tag filter)
+  lever: true            # per-company Lever boards
+  greenhouse: true       # per-company Greenhouse boards
+  ashby: true            # per-company Ashby boards

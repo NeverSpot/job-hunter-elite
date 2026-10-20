@@ -4,6 +4,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
+# The LaTeX resume project and the Tectonic binary are machine-specific, so
+# they are read from the environment instead of being hardcoded:
+#   RESUME_PROJECT_DIR  — directory containing resume_optimized.tex and
+#                         src/achievements.tex
+#   TECTONIC_BIN        — path to the tectonic executable (falls back to PATH)
 RESUME_PROJECT_DIR = Path(os.environ.get("RESUME_PROJECT_DIR", "./resume")).expanduser()
 ACHIEVEMENTS_FILE = RESUME_PROJECT_DIR / "src/achievements.tex"
 TECTONIC_BIN = os.environ.get("TECTONIC_BIN") or shutil.which("tectonic") or "tectonic"
@@ -11,9 +16,10 @@ MANDATORY_LINE = r"\resumeItem{IICPC Regionalist with 56th rank in regionals and
 
 def tailor_resume(job_description):
     print(f"Tailoring resume for: {job_description[:50]}...")
-    
+
     if not ACHIEVEMENTS_FILE.exists():
         print(f"Error: {ACHIEVEMENTS_FILE} not found.")
+        print("Set RESUME_PROJECT_DIR to your LaTeX resume project directory.")
         return False
     
     with open(ACHIEVEMENTS_FILE, "r", encoding="utf-8") as f:
